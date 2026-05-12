@@ -33,6 +33,7 @@ type ConversationDetail = {
 };
 
 type ChatShellProps = {
+  availableProviders: string[];
   provider: string;
   suggestedPrompts: string[];
 };
@@ -79,7 +80,8 @@ type ChatStreamEvent =
       conversationId: string;
     };
 
-export function ChatShell({ provider, suggestedPrompts }: ChatShellProps) {
+export function ChatShell({ availableProviders, provider, suggestedPrompts }: ChatShellProps) {
+  const [activeProvider, setActiveProvider] = useState(provider);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -178,7 +180,8 @@ export function ChatShell({ provider, suggestedPrompts }: ChatShellProps) {
         body: JSON.stringify({
           clientMessageId,
           conversationId,
-          message
+          message,
+          provider: activeProvider
         })
       });
 
@@ -379,7 +382,7 @@ export function ChatShell({ provider, suggestedPrompts }: ChatShellProps) {
     } finally {
       setIsStreaming(false);
     }
-  }, [conversationId, isStreaming, refreshConversations, loadConversation]);
+  }, [activeProvider, conversationId, isStreaming, refreshConversations, loadConversation]);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -438,7 +441,28 @@ export function ChatShell({ provider, suggestedPrompts }: ChatShellProps) {
             <div className="flex flex-wrap items-center gap-2">
               <DatasetBadge />
               <DisclosureBadge />
-              <ProviderBadge provider={provider} />
+              {availableProviders.length > 1 ? (
+                <div className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--soft)] p-0.5 text-xs font-medium">
+                  {availableProviders.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      disabled={isStreaming}
+                      onClick={() => setActiveProvider(p)}
+                      className={[
+                        "rounded-full px-3 py-1 transition-colors",
+                        activeProvider === p
+                          ? "bg-white text-[var(--foreground)] shadow-sm"
+                          : "text-[var(--muted)] hover:text-[var(--foreground)]"
+                      ].join(" ")}
+                    >
+                      {p === "openai" ? "OpenAI" : "Anthropic"}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <ProviderBadge provider={activeProvider} />
+              )}
             </div>
             <h2 className="mt-3 text-lg font-semibold">BI analyst chat</h2>
             <p className="mt-1 text-sm leading-6 text-[var(--muted)]">

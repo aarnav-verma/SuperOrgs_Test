@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { stepCountIs, streamText } from "ai";
 import { NextResponse } from "next/server";
 
-import { getModelFromConfig, validateProviderEnv } from "@/lib/ai/provider";
+import { getModelForRequest } from "@/lib/ai/provider";
 import { FEDERAL_AI_MISSION_CONTROL_SYSTEM_PROMPT } from "@/lib/ai/systemPrompt";
 import { federalAiMissionControlTools } from "@/lib/ai/tools";
 import {
@@ -20,6 +20,7 @@ type ChatRequestBody = {
   clientMessageId?: unknown;
   conversationId?: unknown;
   message?: unknown;
+  provider?: unknown;
 };
 
 type ModelMessage = {
@@ -75,17 +76,23 @@ type StreamEvent =
     };
 
 export async function POST(request: Request) {
-  const provider = validateProviderEnv();
-
-  if (!provider.ok) {
-    return apiError("PROVIDER_MISCONFIGURED", provider.error, 400);
-  }
-
   let body: ChatRequestBody;
   try {
     body = (await request.json()) as ChatRequestBody;
   } catch {
     return apiError("INVALID_JSON", "Invalid JSON request body");
+  }
+
+  const requestProvider = typeof body.provider === "string" ? body.provider : undefined;
+  let model;
+  try {
+    model = getModelForRequest(requestProvider);
+  } catch (error) {
+    return apiError(
+      "PROVIDER_MISCONFIGURED",
+      error instanceof Error ? error.message : "Provider not configured",
+      400
+    );
   }
 
   const userContent = normalizeUserMessage(body.message);
@@ -229,7 +236,7 @@ export async function POST(request: Request) {
 
   try {
     const result = streamText({
-      model: getModelFromConfig(),
+      model,
       system: FEDERAL_AI_MISSION_CONTROL_SYSTEM_PROMPT,
       messages,
       tools: federalAiMissionControlTools,

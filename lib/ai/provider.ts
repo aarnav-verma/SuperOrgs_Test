@@ -77,17 +77,36 @@ export function validateProviderEnv(): ProviderValidation {
 }
 
 export function getModelFromConfig() {
-  const validation = validateProviderEnv();
+  return getModelForRequest();
+}
 
-  if (!validation.ok) {
-    throw new Error(validation.error);
+export function getModelForRequest(requestProvider?: string) {
+  const provider = requestProvider
+    ? normalizeProvider(requestProvider)
+    : normalizeProvider(process.env.AI_PROVIDER);
+
+  if (!isSupportedProvider(provider)) {
+    throw new Error(`Invalid provider "${provider}". Expected "openai" or "anthropic".`);
   }
 
-  if (validation.provider === "openai") {
-    return openai(validation.model);
+  if (provider === "openai") {
+    if (!process.env.OPENAI_API_KEY?.trim()) {
+      throw new Error("OPENAI_API_KEY is not configured for the openai provider.");
+    }
+    return openai(process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini");
   }
 
-  return anthropic(validation.model);
+  if (!process.env.ANTHROPIC_API_KEY?.trim()) {
+    throw new Error("ANTHROPIC_API_KEY is not configured for the anthropic provider.");
+  }
+  return anthropic(process.env.ANTHROPIC_MODEL?.trim() || "claude-sonnet-4-6");
+}
+
+export function getAvailableProviders(): AiProvider[] {
+  const available: AiProvider[] = [];
+  if (process.env.OPENAI_API_KEY?.trim()) available.push("openai");
+  if (process.env.ANTHROPIC_API_KEY?.trim()) available.push("anthropic");
+  return available;
 }
 
 function normalizeProvider(provider: string | undefined) {

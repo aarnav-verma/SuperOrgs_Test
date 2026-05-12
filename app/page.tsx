@@ -18,7 +18,7 @@ import {
   getMissionControlSnapshot,
   getRiskCommandCenter
 } from "@/lib/analytics/queries";
-import { getProviderName } from "@/lib/ai/provider";
+import { getAvailableProviders, getProviderName } from "@/lib/ai/provider";
 
 const suggestedPrompts = [
   "Generate an executive briefing on the federal AI portfolio",
@@ -131,6 +131,7 @@ function SetupState({ provider, reason }: { provider: string; reason: string }) 
 
 export default async function Home() {
   const provider = getProviderName();
+  const availableProviders = getAvailableProviders();
   const dashboard = await loadDashboard();
 
   const modeLinks = [
@@ -189,7 +190,7 @@ export default async function Home() {
 
             <ExecutiveBriefingCard snapshot={dashboard.snapshot} />
 
-            <ChatShell provider={provider} suggestedPrompts={suggestedPrompts} />
+            <ChatShell availableProviders={availableProviders} provider={provider} suggestedPrompts={suggestedPrompts} />
           </section>
 
           <section id="inventory" className="mx-auto max-w-7xl space-y-5 px-5 pb-5">
