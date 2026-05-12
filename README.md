@@ -1,141 +1,70 @@
 # Federal AI Mission Control
 
-## 1. Project Overview
+A chat-native BI product for the OMB 2025 Federal Agency AI Use Case Inventory. Ask natural-language questions and get inline BI components — KPI cards, charts, tables, risk queues, and follow-up chips — streamed back in a single conversation surface.
 
-Federal AI Mission Control is a compact, chat-native BI product for the OMB 2025 Federal Agency AI Use Case Inventory.
+---
 
-It helps users analyze AI inventory, governance readiness, COTS adoption, estimated cost, utilization, ROI, and adoption planning from one executive-grade chat surface. The assistant answers natural-language questions with inline BI components: KPI cards, charts, tables, risk queues, search results, and follow-up chips.
+## Quick Start (Docker)
 
-## 2. Why This Dataset
-
-The primary data source is the OMB 2025 Federal Agency AI Use Case Inventory.
-
-- `2025_individually_reported_AI_use_cases.csv` powers AI inventory, agency/bureau analysis, development-stage analysis, topic and classification mix, high-impact review, PII exposure, ATO coverage, and governance readiness.
-- `2025_consolidated_COTS_AI_use_cases.csv` powers COTS adoption, commercial product visibility, license bucket exposure, and agency-level AI tool sprawl analysis.
-
-This maps well to a SuperOrgs-style workflow because the core problem is organizational AI visibility: leaders need to understand what AI systems exist, where adoption is accelerating, where governance is incomplete, which commercial tools are spreading, and where cost or utilization patterns need executive attention.
-
-## 3. Data Disclosure
-
-The OMB inventory and consolidated COTS records are real public data.
-
-Monthly cost, usage, ROI, hours saved, utilization, risk trend, and governance trend metrics are deterministic synthetic enrichments generated from real inventory attributes such as development stage, high-impact status, PII involvement, ATO status, topic area, and AI classification.
-
-The synthetic layer exists because real enterprise AI telemetry, spend, task volume, productivity, and utilization data is usually private. These estimates are useful for product demonstration and BI workflow design, but they are not official OMB-reported spend, usage, ROI, or risk scores.
-
-## 4. Quick Start With Docker Only
-
-Reviewer requirements:
-
-- Docker
-- OpenAI and/or Anthropic API key
-- No local Node installation
-- No local Postgres installation
-- No hosted database
+**Requirements:** Docker, one API key (OpenAI or Anthropic). No local Node or Postgres needed.
 
 ```sh
-Create `.env` with the required values (see section 5) and add at least one provider API key.
+cp .env.example .env
+# Edit .env: set AI_PROVIDER and add the matching API key (see Provider Switching below)
 docker compose up --build
 ```
 
-The app runs at:
+App runs at **http://localhost:3000**.
 
-```text
-http://localhost:3000
+The container automatically waits for Postgres, applies Prisma migrations, seeds the analytics tables from `data/raw/`, and starts the Next.js server. First startup takes ~2–3 minutes to build.
+
+**Required data files** (should be committed with the repo — Docker needs no internet access):
+
 ```
-
-Required local CSV files:
-
-```text
 data/raw/2025_individually_reported_AI_use_cases.csv
 data/raw/2025_consolidated_COTS_AI_use_cases.csv
 ```
 
-These files should be committed with the submission so Docker does not need internet access at runtime.
+---
 
-Docker startup waits for Postgres, syncs the Prisma schema, seeds from `data/raw` when analytics tables are empty, and starts the Next.js server.
+## Provider Switching
 
-Manual commands:
+Set two env vars in `.env`. No code changes required.
 
-```sh
-docker compose ps
-docker compose logs -f app
-docker compose exec app npm run smoke:bi
-```
-
-For a clean startup after schema or data changes:
-
-```sh
-docker compose down -v
-Create `.env` again if needed and add your provider key(s) again.
-docker compose up --build
-```
-
-If the app starts but still fails on first question, confirm:
-
-- `AI_PROVIDER` is `openai` or `anthropic`
-- The matching API key is set in `.env`
-- `OPENAI_MODEL`/`ANTHROPIC_MODEL` is valid
-
-Docker startup and migration workflow:
-
-```sh
-docker compose exec app npm run db:deploy
-docker compose exec app npm run db:push
-docker compose exec app npm run db:seed
-docker compose exec app npm run db:reset
-docker compose exec app npm run smoke:bi
-```
-
-The container startup flow is:
-
-1. wait for Postgres,
-2. apply Prisma migrations from `prisma/migrations` with `prisma migrate deploy`,
-3. seed local `data/raw` rows when analytics tables are empty.
-
-Use `SEED_ON_START=false` to skip automatic seeding, or `SEED_ON_START=true` to force seed on startup.
-
-## 5. Environment Variables
-
-```env
-DATABASE_URL=postgresql://postgres:postgres@db:5432/federal_ai_mission_control
-AI_PROVIDER=openai
-OPENAI_API_KEY=
-OPENAI_MODEL=gpt-4o-mini
-ANTHROPIC_API_KEY=
-ANTHROPIC_MODEL=claude-3-5-sonnet-latest
-DB_WAIT_TIMEOUT_MS=120000
-```
-
-- `DATABASE_URL`: Postgres connection string. In Docker this should use the `db` hostname.
-- `AI_PROVIDER`: `openai` or `anthropic`.
-- `OPENAI_API_KEY`: required when `AI_PROVIDER=openai`.
-- `OPENAI_MODEL`: OpenAI model name.
-- `ANTHROPIC_API_KEY`: required when `AI_PROVIDER=anthropic`.
-- `ANTHROPIC_MODEL`: Anthropic model name.
-- `DB_WAIT_TIMEOUT_MS`: optional startup timeout for app Postgres wait loop (default 120000ms). Increase this value on slower hosts.
-
-## 6. Provider Switching
-
-OpenAI:
-
+**OpenAI:**
 ```env
 AI_PROVIDER=openai
-OPENAI_API_KEY=your_openai_key
+OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4o-mini
 ```
 
-Anthropic:
-
+**Anthropic:**
 ```env
 AI_PROVIDER=anthropic
-ANTHROPIC_API_KEY=your_anthropic_key
-ANTHROPIC_MODEL=claude-3-5-sonnet-latest
+ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_MODEL=claude-sonnet-4-6
 ```
 
-No code changes are required. Provider-specific logic is isolated in `lib/ai/provider.ts`.
+Provider-specific logic is fully isolated in `lib/ai/provider.ts`. The rest of the app calls `getModelFromConfig()` and is provider-agnostic via the Vercel AI SDK.
 
-## 7. Demo Queries
+---
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `DATABASE_URL` | Yes | — | Postgres connection string. Use `db` hostname inside Docker. |
+| `AI_PROVIDER` | Yes | `openai` | `openai` or `anthropic` |
+| `OPENAI_API_KEY` | If OpenAI | — | Required when `AI_PROVIDER=openai` |
+| `OPENAI_MODEL` | No | `gpt-4o-mini` | OpenAI model name |
+| `ANTHROPIC_API_KEY` | If Anthropic | — | Required when `AI_PROVIDER=anthropic` |
+| `ANTHROPIC_MODEL` | No | `claude-sonnet-4-6` | Anthropic model name |
+| `DB_WAIT_TIMEOUT_MS` | No | `120000` | Startup timeout for Postgres wait loop (ms) |
+| `SEED_ON_START` | No | `auto` | `auto` seeds when tables are empty, `true` forces seed, `false` skips |
+
+---
+
+## Demo Queries
 
 - Generate an executive briefing on the federal AI portfolio
 - Which agencies have the most high-impact AI systems?
@@ -145,106 +74,111 @@ No code changes are required. Provider-specific logic is isolated in `lib/ai/pro
 - Where is adoption growing faster than governance readiness?
 - Find generative AI systems involving PII
 
-See `VIDEO_SCRIPT.md` for a concise review/demo walkthrough.
+See `VIDEO_SCRIPT.md` for a concise demo walkthrough.
 
-## 8. Architecture
+---
 
-- Next.js App Router for the UI and API routes
-- TypeScript throughout the app
-- Tailwind CSS and local shadcn-style primitives for compact enterprise UI
-- Postgres in Docker for analytics data and chat persistence
-- Prisma for schema, queries, and seed workflows
-- Vercel AI SDK for streaming chat and typed tool calls
-- Provider abstraction in `lib/ai/provider.ts`
-- Typed tool definitions in `lib/ai/tools.ts`
-- Safe BI query layer in `lib/analytics/queries.ts`
-- Scoring and deterministic telemetry logic in `lib/analytics/scoring.ts`
-- Inline BI rendering in `components/chat/ToolRenderer.tsx`
-- Conversations and messages persisted in Postgres
+## Data Sources
 
-The model never writes SQL. It can only call typed tools backed by safe query functions.
+**Real public data:**
+- `2025_individually_reported_AI_use_cases.csv` — AI inventory, agency/bureau analysis, development stage, topic/classification mix, high-impact review, PII exposure, ATO coverage, governance readiness.
+- `2025_consolidated_COTS_AI_use_cases.csv` — COTS adoption, commercial product visibility, license bucket exposure, agency-level AI tool sprawl.
 
-## 9. Tool Design
+**Synthetic enrichment:**
+Monthly cost, usage, ROI, hours saved, utilization, risk trends, and governance trends are deterministic synthetic values derived from real inventory attributes (stage, high-impact status, PII, ATO, topic, classification). They are useful for BI workflow demonstration but are not official OMB-reported spend, usage, or risk scores.
 
-Tools:
+---
 
-- `getMissionControlSnapshot`: executive overview with KPIs, findings, risks, recommended actions, stage mix, and high-impact agency concentration.
-- `getInventoryBreakdown`: rankings and distributions by agency, bureau, stage, topic, or classification.
-- `getRiskCommandCenter`: prioritized governance review queue for high-impact, deployed, PII, missing ATO, and missing control scenarios.
-- `getCotsAdoption`: COTS AI adoption, top commercial products, license buckets, and tool sprawl visibility.
-- `getCostIntelligence`: synthetic spend trend, annualized run-rate, cost by agency/classification, ROI simulation, and savings opportunities.
-- `searchUseCases`: row-level search across system name, problem solved, benefits, outputs, agency, bureau, topic, and classification.
-- `getAdoptionGovernanceMatrix`: adoption versus governance readiness quadrants.
-- `getFollowupSuggestions`: context-aware follow-up chips.
+## Architecture
 
-To add a new tool, a teammate would:
+- **Next.js App Router** — UI and API routes
+- **TypeScript** throughout
+- **Tailwind CSS** with compact enterprise UI primitives
+- **Postgres in Docker** — analytics data and chat persistence
+- **Prisma** — schema, migrations, seed workflows
+- **Vercel AI SDK** — streaming chat and typed tool calls
+- **Provider abstraction** in `lib/ai/provider.ts` — swap OpenAI ↔ Anthropic via env vars
+- **Typed tools** in `lib/ai/tools.ts`
+- **Safe BI query layer** in `lib/analytics/queries.ts` — the model never writes SQL
+- **Inline BI rendering** in `components/chat/ToolRenderer.tsx`
+- **Chat persistence** — conversations, messages, and tool result payloads stored in Postgres and replayed on reload
 
-1. Add a typed query function in `lib/analytics/queries.ts`.
-2. Add or extend result types in `lib/analytics/types.ts`.
-3. Register the zod-validated tool in `lib/ai/tools.ts`.
-4. Add rendering support in `components/chat/ToolRenderer.tsx`.
+---
 
-## 10. Streaming And Persistence
+## BI Tools
 
-Assistant responses stream progressively through `/api/chat`.
+| Tool | What it answers |
+|---|---|
+| `getMissionControlSnapshot` | Executive overview: KPIs, findings, risks, recommended actions, stage mix, high-impact agency concentration |
+| `getInventoryBreakdown` | Rankings and distributions by agency, bureau, stage, topic, or classification |
+| `getRiskCommandCenter` | Prioritized governance review queue: high-impact, deployed, PII, missing ATO, missing controls |
+| `getCotsAdoption` | COTS adoption, top commercial products, license buckets, tool sprawl |
+| `getCostIntelligence` | Synthetic spend trend, annualized run-rate, cost by agency/classification, ROI simulation |
+| `searchUseCases` | Row-level search across system name, problem, benefits, outputs, agency, topic, classification |
+| `getAdoptionGovernanceMatrix` | Adoption vs. governance readiness quadrants |
+| `getFollowupSuggestions` | Context-aware follow-up chips after each analytical answer |
 
-The app persists:
+**Adding a tool:**
+1. Add a typed query function in `lib/analytics/queries.ts`
+2. Add result types in `lib/analytics/types.ts`
+3. Register the zod-validated tool in `lib/ai/tools.ts`
+4. Add rendering support in `components/chat/ToolRenderer.tsx`
 
-- conversations
-- user messages
-- assistant messages
-- streamed final assistant text
-- tool result payloads
+---
 
-After reload, the selected conversation is loaded from Postgres. Historical tool results are rendered again through `ToolRenderer`, so prior KPI cards, charts, tables, and follow-up chips reappear rather than raw JSON.
+## Docker Operations
 
-## 11. Database Schema
+```sh
+# Start everything
+docker compose up --build
 
-- `Agency`: normalized agency identity shared by individual and COTS records.
-- `AiUseCase`: individual OMB AI use case records, including stage, high-impact status, topic, classification, PII, ATO, vendor/code fields, and raw row JSON.
-- `GovernanceControl`: high-impact governance fields, missing-control labels, risk drivers, app-derived governance score, risk score, and risk tier.
-- `CotsUseCase`: consolidated COTS use case records, product text, parsed product names, license bucket, estimated license midpoint, and estimated monthly spend.
-- `MonthlyMetric`: deterministic synthetic monthly cost, users, task volume, hours saved, value created, risk, governance, utilization, and adoption scores.
-- `Conversation`: persisted chat thread metadata.
-- `Message`: persisted user/assistant messages with optional parts and tool results.
+# Tail app logs
+docker compose logs -f app
 
-## 12. AI Tools And Open-Source Libraries Used
+# Check container status
+docker compose ps
 
-AI coding tools, including Codex, were used to help scaffold and iterate on this project.
+# Run BI smoke tests
+docker compose exec app npm run smoke:bi
 
-Major libraries:
+# Clean restart (drops Postgres volume — use after schema or data changes)
+docker compose down -v && docker compose up --build
+```
 
-- Next.js
-- React
-- TypeScript
-- Tailwind CSS
-- Prisma
-- Postgres
-- Vercel AI SDK
-- OpenAI AI SDK provider
-- Anthropic AI SDK provider
-- Recharts
-- zod
-- csv-parse
-- tsx
-- ESLint
+Manual database commands inside the container:
 
-## 13. Known Limitations
+```sh
+docker compose exec app npm run db:deploy   # apply migrations
+docker compose exec app npm run db:seed     # re-seed analytics tables
+docker compose exec app npm run db:reset    # reset and re-seed
+```
+
+---
+
+## Database Schema
+
+| Table | Contents |
+|---|---|
+| `Agency` | Normalized agency identity shared by individual and COTS records |
+| `AiUseCase` | Individual OMB AI use case records with stage, high-impact, topic, classification, PII, ATO, and raw row JSON |
+| `GovernanceControl` | High-impact governance fields, missing-control labels, risk drivers, app-derived governance and risk scores |
+| `CotsUseCase` | Consolidated COTS records with product text, parsed product names, license bucket, and estimated monthly spend |
+| `MonthlyMetric` | Deterministic synthetic monthly cost, users, task volume, hours saved, risk, governance, utilization, and adoption scores |
+| `Conversation` | Persisted chat thread metadata |
+| `Message` | Persisted user/assistant messages with optional tool results |
+
+---
+
+## Libraries
+
+Next.js · React · TypeScript · Tailwind CSS · Prisma · Vercel AI SDK · `@ai-sdk/openai` · `@ai-sdk/anthropic` · Recharts · zod · csv-parse · tsx · ESLint
+
+---
+
+## Known Limitations
 
 - Synthetic telemetry is deterministic demo data, not official OMB telemetry.
-- No authentication.
-- Single-user local review flow.
-- Public dataset only.
-- Risk scoring is app-derived prioritization, not an official OMB risk score or compliance determination.
-- COTS product extraction is simple text parsing and can be improved.
-- No exportable executive memo yet.
-
-## 14. What I Would Do With Another 6 Hours
-
-- Add DuckDB or ClickHouse for larger analytical workloads.
-- Add exportable executive memo and board briefing outputs.
-- Add a richer filter builder.
-- Add a row-level use case detail drawer.
-- Add model evals for tool choice and routing quality.
-- Add better COTS product entity extraction and deduplication.
-- Add multi-tenant org support with authentication and role-based access.
+- No authentication — single-user local deployment.
+- Risk scoring is app-derived prioritization, not an official OMB risk or compliance determination.
+- COTS product extraction uses simple text parsing.
+- No exportable executive memo output.
