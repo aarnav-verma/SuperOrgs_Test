@@ -157,6 +157,12 @@ function asStringArray(value: unknown): string[] {
     .filter(Boolean);
 }
 
+function isPlaceholderValue(value: string | undefined): boolean {
+  if (!value) return true;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "all" || normalized === "any" || normalized === "none" || normalized === "*" || normalized === "";
+}
+
 function buildUseCaseWhere(filters?: UseCaseFilters): Prisma.AiUseCaseWhereInput {
   const where: Prisma.AiUseCaseWhereInput = {};
 
@@ -164,7 +170,7 @@ function buildUseCaseWhere(filters?: UseCaseFilters): Prisma.AiUseCaseWhereInput
     return where;
   }
 
-  if (filters.agency) {
+  if (filters.agency && !isPlaceholderValue(filters.agency)) {
     where.agency = {
       OR: [
         {
@@ -189,21 +195,21 @@ function buildUseCaseWhere(filters?: UseCaseFilters): Prisma.AiUseCaseWhereInput
     };
   }
 
-  if (filters.stage) {
+  if (filters.stage && !isPlaceholderValue(filters.stage)) {
     where.normalizedStage = {
       contains: filters.stage,
       mode: "insensitive"
     };
   }
 
-  if (filters.topic) {
+  if (filters.topic && !isPlaceholderValue(filters.topic)) {
     where.normalizedTopicArea = {
       contains: filters.topic,
       mode: "insensitive"
     };
   }
 
-  if (filters.classification) {
+  if (filters.classification && !isPlaceholderValue(filters.classification)) {
     where.normalizedClassification = {
       contains: filters.classification,
       mode: "insensitive"
@@ -226,7 +232,7 @@ function buildUseCaseWhere(filters?: UseCaseFilters): Prisma.AiUseCaseWhereInput
 }
 
 function buildCotsWhere(params?: Pick<CotsAdoptionParams, "agency">): Prisma.CotsUseCaseWhereInput {
-  if (!params?.agency) {
+  if (!params?.agency || isPlaceholderValue(params.agency)) {
     return {};
   }
 
@@ -446,11 +452,13 @@ function riskCommandTitle(params: RiskCommandCenterParams) {
 }
 
 function riskCommandSubtitle(params: RiskCommandCenterParams, rowCount: number) {
+  const validTiers = ["critical", "high", "medium", "low"];
+  const effectiveTier = params.riskTier?.trim().toLowerCase();
   const scope = [
     params.deployedOnly ? "deployed" : null,
     params.highImpactOnly ? "high-impact" : null,
     params.piiOnly ? "PII" : null,
-    params.riskTier ? `${params.riskTier.toLowerCase()} tier` : null
+    effectiveTier && validTiers.includes(effectiveTier) ? `${effectiveTier} tier` : null
   ]
     .filter(Boolean)
     .join(", ");
@@ -715,7 +723,7 @@ export async function getRiskCommandCenter(
 ): Promise<RiskCommandCenterResult> {
   const limit = clampLimit(params.limit);
   const useCases = await fetchUseCases({
-    agency: params.agency,
+    agency: isPlaceholderValue(params.agency) ? undefined : params.agency,
     highImpactOnly: params.highImpactOnly,
     piiOnly: params.piiOnly,
     deployedOnly: params.deployedOnly
@@ -742,7 +750,13 @@ export async function getRiskCommandCenter(
         riskDrivers
       };
     })
-    .filter((row) => (params.riskTier ? row.riskTier === params.riskTier : true));
+    .filter((row) => {
+      const validTiers = ["critical", "high", "medium", "low"];
+      const requestedTier = params.riskTier?.trim().toLowerCase();
+      return requestedTier && validTiers.includes(requestedTier)
+        ? row.riskTier.toLowerCase() === requestedTier
+        : true;
+    });
 
   const highImpactNeedingReview = rows.filter(
     (row) => row.highImpact && (row.missingControls.length > 0 || row.governanceScore < 60)

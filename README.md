@@ -145,6 +145,8 @@ No code changes are required. Provider-specific logic is isolated in `lib/ai/pro
 - Where is adoption growing faster than governance readiness?
 - Find generative AI systems involving PII
 
+See `VIDEO_SCRIPT.md` for a concise review/demo walkthrough.
+
 ## 8. Architecture
 
 - Next.js App Router for the UI and API routes

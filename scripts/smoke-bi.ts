@@ -117,6 +117,14 @@ async function main() {
       assertArray(result.data, "COTS by agency data");
       assertArray(result.rows, "COTS by agency rows");
       assertValid(typeof result.note === "string", "COTS by agency note missing");
+      assertValid(
+        result.rows.some((row) => row.yesRows > 0),
+        "COTS by agency must include agency-use Yes rows from the real COTS CSV"
+      );
+      assertValid(
+        result.rows.some((row) => row.estimatedMonthlySpend > 0),
+        "COTS by agency must include synthetic license spend estimates"
+      );
 
       return `kpis=${result.kpis.length}, rows=${result.rows.length}, top=${firstLabel(result.rows)}`;
     })
@@ -129,6 +137,14 @@ async function main() {
       assertArray(result.data, "COTS by product data");
       assertArray(result.rows, "COTS by product rows");
       assertValid(typeof result.note === "string", "COTS by product note missing");
+      assertValid(
+        result.rows.some((row) => row.label !== "Unspecified product" && row.uniqueProducts > 0),
+        "COTS by product must parse real commercial product names"
+      );
+      assertValid(
+        result.rows.some((row) => row.estimatedMonthlySpend > 0),
+        "COTS by product must include synthetic license spend estimates"
+      );
 
       return `kpis=${result.kpis.length}, rows=${result.rows.length}, top=${firstLabel(result.rows)}`;
     })

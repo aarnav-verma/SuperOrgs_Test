@@ -57,7 +57,7 @@ export function validateProviderEnv(): ProviderValidation {
     };
   }
 
-  const model = process.env.ANTHROPIC_MODEL?.trim() || "claude-3-5-sonnet-latest";
+  const model = process.env.ANTHROPIC_MODEL?.trim() || "claude-sonnet-4-6";
 
   if (!process.env.ANTHROPIC_API_KEY?.trim()) {
     return {

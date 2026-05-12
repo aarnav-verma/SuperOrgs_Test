@@ -60,6 +60,10 @@ const AI_USE_CASE_COLUMNS = [
 const AGENCY_USE_COLUMNS = [
   "agency use",
   "agency_use",
+  "agency use (y/n)?",
+  "agency use y/n",
+  "agency use y n",
+  "agency use yn",
   "agency uses",
   "used by agency",
   "use by agency",
@@ -68,6 +72,7 @@ const AGENCY_USE_COLUMNS = [
 ];
 
 const PRODUCT_COLUMNS = [
+  "name of commercial product or service used",
   "commercial product/service",
   "commercial product service",
   "commercial product or service",
@@ -84,6 +89,9 @@ const PRODUCT_COLUMNS = [
 ];
 
 const LICENSE_COLUMNS = [
+  "estimated # of licenses/users",
+  "estimated number of licenses/users",
+  "estimated licenses/users",
   "license/user bucket",
   "license user bucket",
   "licenses/users",
@@ -176,16 +184,35 @@ function parseAgencyUseBoolean(value: string | null): boolean | null {
 }
 
 function shouldSkipRow(row: CotsUseCaseRow) {
-  const agencyName = getAgencyName(row);
-  const aiUseCase = getField(row, AI_USE_CASE_COLUMNS);
-  const agencyUse = getField(row, AGENCY_USE_COLUMNS);
-  const productText = getField(row, PRODUCT_COLUMNS);
+  const fields = parseCotsUseCaseRow(row);
 
-  return !agencyName || (!aiUseCase && !agencyUse && !productText);
+  return !fields.agencyName || (!fields.aiUseCase && !fields.agencyUse && !fields.productText);
 }
 
 async function clearCotsInventory(prisma: PrismaClient) {
   await prisma.cotsUseCase.deleteMany();
+}
+
+export function parseCotsUseCaseRow(row: CotsUseCaseRow) {
+  const agencyName = getAgencyName(row);
+  const agencyUse = getField(row, AGENCY_USE_COLUMNS);
+  const productText = getField(row, PRODUCT_COLUMNS);
+  const licenseBucket = getField(row, LICENSE_COLUMNS);
+  const estimatedLicenseMidpoint = estimateLicenseMidpoint(licenseBucket);
+
+  return {
+    agencyName,
+    agencyAbbreviation: agencyName ? getAgencyAbbreviation(row, agencyName) : null,
+    aiUseCase: getField(row, AI_USE_CASE_COLUMNS),
+    agencyUse,
+    agencyUseBoolean: parseAgencyUseBoolean(agencyUse),
+    productText,
+    productNames: splitProductNames(productText),
+    licenseBucket,
+    estimatedLicenseMidpoint,
+    estimatedMonthlySpend:
+      estimatedLicenseMidpoint == null ? null : estimatedLicenseMidpoint * 20
+  };
 }
 
 export async function importCotsUseCases(
@@ -216,7 +243,8 @@ export async function importCotsUseCases(
       continue;
     }
 
-    const agencyName = getAgencyName(row);
+    const parsedRow = parseCotsUseCaseRow(row);
+    const agencyName = parsedRow.agencyName;
     if (!agencyName) {
       skippedRows += 1;
       continue;
@@ -229,11 +257,11 @@ export async function importCotsUseCases(
       const agency = await prisma.agency.upsert({
         where: { normalizedName: agencyNormalizedName },
         update: {
-          abbreviation: getAgencyAbbreviation(row, agencyName),
+          abbreviation: parsedRow.agencyAbbreviation,
           name: agencyName
         },
         create: {
-          abbreviation: getAgencyAbbreviation(row, agencyName),
+          abbreviation: parsedRow.agencyAbbreviation,
           name: agencyName,
           normalizedName: agencyNormalizedName
         }
@@ -244,26 +272,17 @@ export async function importCotsUseCases(
       agencyIdsByNormalizedName.set(agencyNormalizedName, resolvedAgencyId);
     }
 
-    const agencyUse = getField(row, AGENCY_USE_COLUMNS);
-    const agencyUseBoolean = parseAgencyUseBoolean(agencyUse);
-    const productText = getField(row, PRODUCT_COLUMNS);
-    const productNames = splitProductNames(productText);
-    const licenseBucket = getField(row, LICENSE_COLUMNS);
-    const estimatedLicenseMidpoint = estimateLicenseMidpoint(licenseBucket);
-    const estimatedMonthlySpend =
-      estimatedLicenseMidpoint == null ? null : estimatedLicenseMidpoint * 20;
-
     await prisma.cotsUseCase.create({
       data: {
         agencyId,
-        aiUseCase: getField(row, AI_USE_CASE_COLUMNS) ?? "Unspecified COTS AI use case",
-        agencyUse,
-        agencyUseBoolean,
-        productText,
-        productNamesJson: productNames,
-        licenseBucket,
-        estimatedLicenseMidpoint,
-        estimatedMonthlySpend,
+        aiUseCase: parsedRow.aiUseCase ?? "Unspecified COTS AI use case",
+        agencyUse: parsedRow.agencyUse,
+        agencyUseBoolean: parsedRow.agencyUseBoolean,
+        productText: parsedRow.productText,
+        productNamesJson: parsedRow.productNames,
+        licenseBucket: parsedRow.licenseBucket,
+        estimatedLicenseMidpoint: parsedRow.estimatedLicenseMidpoint,
+        estimatedMonthlySpend: parsedRow.estimatedMonthlySpend,
         rawJson: row
       }
     });
@@ -271,16 +290,16 @@ export async function importCotsUseCases(
     cotsRowsImported += 1;
     agenciesInCots.add(agencyNormalizedName);
 
-    if (agencyUseBoolean === true) {
+    if (parsedRow.agencyUseBoolean === true) {
       cotsYesRows += 1;
     }
 
-    for (const productName of productNames) {
+    for (const productName of parsedRow.productNames) {
       uniqueProductNames.add(productName.toLowerCase());
     }
 
-    if (estimatedMonthlySpend != null) {
-      totalEstimatedCotsMonthlySpend += estimatedMonthlySpend;
+    if (parsedRow.estimatedMonthlySpend != null) {
+      totalEstimatedCotsMonthlySpend += parsedRow.estimatedMonthlySpend;
     }
   }
 

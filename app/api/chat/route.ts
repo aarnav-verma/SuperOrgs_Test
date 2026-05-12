@@ -30,6 +30,7 @@ type ModelMessage = {
 type PersistedChatMessage = {
   role: string;
   content: string;
+  toolResultsJson: unknown;
 };
 
 type ExistingClientMessage = {
@@ -220,7 +221,7 @@ export async function POST(request: Request) {
       )
       .map((message: PersistedChatMessage) => ({
         role: message.role as "user" | "assistant",
-        content: message.content
+        content: modelHistoryContent(message)
       }));
   } catch (error) {
     return databaseError(error);
@@ -262,10 +263,6 @@ function streamReplayResponse(conversationId: string, content: string, toolResul
     async (send) => {
       send({ type: "start", conversationId });
 
-      if (content) {
-        send({ type: "text_delta", text: content });
-      }
-
       toolResults.forEach((result, index) => {
         send({
           type: "tool_result",
@@ -274,6 +271,16 @@ function streamReplayResponse(conversationId: string, content: string, toolResul
           result
         });
       });
+
+      if (content) {
+        const words = content.split(/(\s+)/);
+        for (const word of words) {
+          if (word) {
+            send({ type: "text_delta", text: word });
+            await new Promise<void>((resolve) => setTimeout(resolve, 18));
+          }
+        }
+      }
 
       send({ type: "finish", conversationId });
     },
@@ -534,6 +541,90 @@ function toolNameForPayload(payload: unknown) {
   };
 
   return toolNames[payload.componentType] ?? "BI tool";
+}
+
+function modelHistoryContent(message: PersistedChatMessage) {
+  if (message.role !== "assistant") {
+    return message.content;
+  }
+
+  const toolSummary = summarizePersistedToolResults(message.toolResultsJson);
+  if (!toolSummary) {
+    return message.content;
+  }
+
+  return [message.content, "Prior rendered BI outputs:", toolSummary].filter(Boolean).join("\n\n");
+}
+
+function summarizePersistedToolResults(value: unknown) {
+  const payloads = normalizePersistedToolResults(value);
+
+  if (payloads.length === 0) {
+    return "";
+  }
+
+  return payloads.map(summarizeToolPayload).filter(Boolean).join("\n");
+}
+
+function summarizeToolPayload(payload: unknown) {
+  if (!isRecord(payload) || typeof payload.componentType !== "string") {
+    return "";
+  }
+
+  const title = readString(payload, ["title"]) ?? payload.componentType;
+  const kpis = summarizeKpis(payload.kpis);
+  const rows = summarizeRows(payload.rows ?? payload.data);
+
+  return [`- ${title}`, kpis ? `  KPIs: ${kpis}` : "", rows ? `  Top rows: ${rows}` : ""]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function summarizeKpis(value: unknown) {
+  if (!Array.isArray(value)) {
+    return "";
+  }
+
+  return value
+    .slice(0, 6)
+    .map((item) => {
+      if (!isRecord(item)) {
+        return null;
+      }
+
+      const label = readString(item, ["label"]);
+      const rawValue = item.value;
+      const renderedValue =
+        typeof rawValue === "string" || typeof rawValue === "number" ? String(rawValue) : null;
+
+      return label && renderedValue ? `${label}: ${renderedValue}` : null;
+    })
+    .filter(Boolean)
+    .join("; ");
+}
+
+function summarizeRows(value: unknown) {
+  if (!Array.isArray(value)) {
+    return "";
+  }
+
+  return value
+    .slice(0, 8)
+    .map((item) => {
+      if (!isRecord(item)) {
+        return null;
+      }
+
+      const label =
+        readString(item, ["label", "useCaseName", "agency", "product", "useCase"]) ?? "row";
+      const rawValue = item.value ?? item.systems ?? item.riskScore ?? item.estimatedMonthlyCost;
+      const renderedValue =
+        typeof rawValue === "string" || typeof rawValue === "number" ? String(rawValue) : null;
+
+      return renderedValue ? `${label} (${renderedValue})` : label;
+    })
+    .filter(Boolean)
+    .join("; ");
 }
 
 function isRenderableToolPayload(value: unknown) {
