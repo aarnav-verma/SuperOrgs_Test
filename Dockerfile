@@ -25,6 +25,7 @@ ENV HOSTNAME=0.0.0.0
 ENV DATABASE_URL=postgresql://postgres:postgres@db:5432/federal_ai_mission_control
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/next.config.mjs ./next.config.mjs
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/lib ./lib
 COPY --from=builder /app/data ./data
