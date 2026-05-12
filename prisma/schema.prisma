@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Agency {
+  id             String        @id @default(cuid())
+  abbreviation   String?
+  name           String
+  normalizedName String        @unique
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  useCases       AiUseCase[]
+  cotsUseCases   CotsUseCase[]
+
+  @@index([normalizedName])
+}
+
+model AiUseCase {
+  id                       String             @id @default(cuid())
+  ombId                    String?
+  agencyId                 String
+  agency                   Agency             @relation(fields: [agencyId], references: [id])
+  useCaseName              String
+  agencyBureau             String?
+  contactEmail             String?
+  isWithheld               String?
+  developmentStage         String?
+  normalizedStage          String?
+  activeSystemBoolean      Boolean            @default(false)
+  isHighImpact             String?
+  highImpactBoolean        Boolean            @default(false)
+  highImpactJustification  String?
+  topicArea                String?
+  normalizedTopicArea      String?
+  classification           String?
+  normalizedClassification String?
+  problemSolved            String?
+  benefits                 String?
+  systemOutputs            String?
+  operationalDate          DateTime?
+  contractingUsage         String?
+  vendorName               String?
+  haveAto                  String?
+  atoBoolean               Boolean?
+  systemNameAto            String?
+  dataDescription          String?
+  linkToData               String?
+  hasPii                   String?
+  piiBoolean               Boolean?
+  piaUrl                   String?
+  demographicFeaturesJson  Json?
+  hasCustomCode            String?
+  customCodeBoolean        Boolean?
+  codeUrl                  String?
+  rawJson                  Json?
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+  governanceControl        GovernanceControl?
+  monthlyMetrics           MonthlyMetric[]
+
+  @@index([agencyId])
+  @@index([normalizedStage])
+  @@index([activeSystemBoolean])
+  @@index([highImpactBoolean])
+  @@index([normalizedTopicArea])
+  @@index([normalizedClassification])
+  @@index([piiBoolean])
+  @@index([atoBoolean])
+}
+
+model GovernanceControl {
+  id                         String    @id @default(cuid())
+  aiUseCaseId                String    @unique
+  aiUseCase                  AiUseCase @relation(fields: [aiUseCaseId], references: [id])
+  hiTestingConducted         String?
+  hiAssessmentCompleted      String?
+  hiPotentialImpacts         String?
+  hiIndependentReview        String?
+  hiOngoingMonitoring        String?
+  hiTrainingEstablished      String?
+  hiFailsafePresence         String?
+  hiAppealProcess            String?
+  hiPublicConsultationJson   Json?
+  missingControlsJson        Json?
+  riskDriversJson            Json?
+  completionRate             Float
+  governanceScore            Float
+  riskScore                  Float
+  riskTier                   String
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+}
+
+model CotsUseCase {
+  id                        String   @id @default(cuid())
+  agencyId                  String
+  agency                    Agency   @relation(fields: [agencyId], references: [id])
+  aiUseCase                 String
+  agencyUse                 String?
+  agencyUseBoolean          Boolean?
+  productText               String?
+  productNamesJson          Json?
+  licenseBucket             String?
+  estimatedLicenseMidpoint  Int?
+  estimatedMonthlySpend     Float?
+  rawJson                   Json?
+  createdAt                 DateTime @default(now())
+
+  @@index([agencyId])
+  @@index([agencyUseBoolean])
+  @@index([licenseBucket])
+}
+
+model MonthlyMetric {
+  id                    String    @id @default(cuid())
+  aiUseCaseId           String
+  aiUseCase             AiUseCase @relation(fields: [aiUseCaseId], references: [id])
+  month                 DateTime
+  estimatedMonthlyCost  Float
+  estimatedActiveUsers  Int
+  taskVolume            Int
+  estimatedHoursSaved   Float
+  estimatedValueCreated Float
+  riskScore             Float
+  governanceScore       Float
+  utilizationScore      Float
+  adoptionScore         Float
+  createdAt             DateTime  @default(now())
+
+  @@index([aiUseCaseId])
+  @@index([month])
+}
+
+model Conversation {
+  id        String    @id @default(cuid())
+  title     String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  messages  Message[]
+}
+
+model Message {
+  id              String       @id @default(cuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id])
+  role            String
+  content         String
+  partsJson       Json?
+  toolResultsJson Json?
+  createdAt       DateTime     @default(now())
+
+  @@index([conversationId])
+}

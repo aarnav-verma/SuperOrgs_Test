@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f4f5f2;
+  --foreground: #171a16;
+  --muted: #62675f;
+  --border: #d9ddd4;
+  --border-strong: #c6ccc0;
+  --panel: #fbfcf8;
+  --main: #f8f9f5;
+  --sidebar: #f0f2ed;
+  --rail: #f2f4ef;
+  --soft: #eaeee5;
+  --soft-strong: #dfe5da;
+  --ink: #151815;
+  --accent: #315f46;
+  --accent-light: #b8d9c5;
+  --accent-ring: rgba(49, 95, 70, 0.16);
+  --success: #2f684a;
+  --success-border: #b9d1c3;
+  --success-soft: #eef7f1;
+  --warning: #735c18;
+  --warning-border: #ddd0a4;
+  --warning-soft: #faf5df;
+  --skeleton: #e4e8df;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--foreground);
+  background: var(--background);
+  font-family:
+    "Aptos",
+    "Segoe UI",
+    "Helvetica Neue",
+    sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+::selection {
+  background: var(--accent-light);
+  color: var(--foreground);
+}
+
+table {
+  font-variant-numeric: tabular-nums;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}

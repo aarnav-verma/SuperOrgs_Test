@@ -1,0 +1,21 @@
+.next
+node_modules
+npm-debug.log*
+.env
+.env*.local
+.DS_Store
+coverage
+dist
+tmp
+*.tsbuildinfo
+.codex
+# Keep committed OMB CSV files in data/raw inside the Docker build context.
+!data/raw/*.csv
+Cooking App
+Cooking App v.2
+ENGS 106 Final
+March-Madness
+Notes App
+Shenanigans
+SuperOrgs
+panopto_to_latex
