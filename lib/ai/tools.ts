@@ -24,7 +24,7 @@ const useCaseFiltersSchema = z
     piiOnly: z.boolean().optional(),
     deployedOnly: z.boolean().optional()
   })
-  .strict();
+  .strip();
 
 const missionFiltersSchema = z
   .object({
@@ -32,7 +32,7 @@ const missionFiltersSchema = z
     topic: z.string().trim().min(1).optional(),
     classification: z.string().trim().min(1).optional()
   })
-  .strict();
+  .strip();
 
 function withColumns<T extends object>(payload: T, columns: string[]) {
   return {
@@ -49,7 +49,7 @@ export const federalAiMissionControlTools = {
       .object({
         filters: missionFiltersSchema.optional()
       })
-      .strict(),
+      .strip(),
     execute: async ({ filters }) => getMissionControlSnapshot(filters)
   }),
 
@@ -71,7 +71,7 @@ export const federalAiMissionControlTools = {
         filters: useCaseFiltersSchema.optional(),
         limit: limitSchema
       })
-      .strict(),
+      .strip(),
     execute: async (params) =>
       withColumns(await getInventoryBreakdown(params), [
         "Segment",
@@ -98,7 +98,7 @@ export const federalAiMissionControlTools = {
         sortBy: z.enum(["risk_score", "governance_score", "missing_controls"]).optional(),
         limit: limitSchema
       })
-      .strict(),
+      .strip(),
     execute: async (params) =>
       withColumns(await getRiskCommandCenter(params), [
         "System",
@@ -125,7 +125,7 @@ export const federalAiMissionControlTools = {
         agency: z.string().trim().min(1).optional(),
         limit: limitSchema
       })
-      .strict(),
+      .strip(),
     execute: async (params) =>
       withColumns(await getCotsAdoption(params), [
         "Agency",
@@ -148,7 +148,7 @@ export const federalAiMissionControlTools = {
         classification: z.string().trim().min(1).optional(),
         limit: limitSchema
       })
-      .strict(),
+      .strip(),
     execute: async (params) =>
       withColumns(await getCostIntelligence(params), [
         "System",
@@ -178,7 +178,7 @@ export const federalAiMissionControlTools = {
         deployedOnly: z.boolean().optional(),
         limit: limitSchema
       })
-      .strict(),
+      .strip(),
     execute: async (params) =>
       withColumns(await searchUseCases(params), [
         "System",
@@ -202,7 +202,7 @@ export const federalAiMissionControlTools = {
         groupBy: z.enum(["agency", "topic", "classification"]),
         limit: limitSchema
       })
-      .strict(),
+      .strip(),
     execute: async (params) =>
       withColumns(await getAdoptionGovernanceMatrix(params), [
         "Label",
@@ -223,7 +223,7 @@ export const federalAiMissionControlTools = {
         context: z.enum(["mission_control", "inventory", "risk", "cots", "cost", "search", "matrix"]),
         filters: useCaseFiltersSchema.optional()
       })
-      .strict(),
+      .strip(),
     execute: async (params) => getFollowupSuggestions(params)
   })
 };
